@@ -57,7 +57,7 @@ class BM:
             if prevSad_2 > sad:
                 prevSad_2 = sad
                 bestMatchSoFar_2 = dispRange
-        if np.abs(bestMatchSoFar_1, bestMatchSoFar_2) < 1:
+        if np.abs(bestMatchSoFar_1, bestMatchSoFar_2) < self.disp12MaxDiff:
             bestMatchSoFar = bestMatchSoFar_1
         return bestMatchSoFar
 
