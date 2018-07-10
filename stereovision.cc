@@ -18,10 +18,6 @@ public:
 
     ~DepthRegion() = default;
 
-    /**
-     * 鼠标事件：默认不选中区域，随鼠标移动而显示。单击后，则会选中区域来显示。你可以再单击已选中区域或双击未选中区域，取消选中。
-     */
-
 
     ushort OutputCenterDepth(const cv::Mat &depth) {
 
