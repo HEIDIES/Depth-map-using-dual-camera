@@ -58,15 +58,13 @@ bool Camera::IsOpened() {
     return d_ptr->IsOpened();
 }
 
-ushort Camera::RetrieveDepth() {
+ErrorCode Camera::RetrieveDepth() {
     return d_ptr->RetrieveDepth();
 }
 
-/*
-ErrorCode Camera::RetrieveImage(cv::Mat &mat, const View &view) {
-    return d_ptr->RetrieveImage(mat, view);
+ushort Camera::GetMinDepth() {
+	return d_ptr->GetMinDepth();
 }
-*/
 
 void Camera::Close() {
     d_ptr->Close();

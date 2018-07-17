@@ -19,7 +19,12 @@
 
 #include "log.hpp"
 
+
+
 using namespace mynteye;
+
+
+
 CameraPrivate::CameraPrivate(Camera *q)
 	: q_ptr(q), etron_di_(nullptr), dev_sel_info_({ -1 }), stream_info_dev_index_(-1) {
 	DBG_LOGD(__func__);
@@ -45,6 +50,16 @@ CameraPrivate::CameraPrivate(Camera *q)
 	framerate_ = 30;
 
 	depth_img_buf_ = nullptr;
+}
+
+CameraPrivate::~CameraPrivate() {
+    DBG_LOGD(__func__);
+    EtronDI_Release(&etron_di_);
+
+    free(stream_color_info_ptr_);
+    free(stream_depth_info_ptr_);
+
+    Close();
 }
 
 void CameraPrivate::GetDevices(std::vector<DeviceInfo> &dev_infos) {
@@ -204,6 +219,8 @@ ErrorCode CameraPrivate::Open(const InitParams &params) {
 		}
 	}
 
+	ReleaseBuf();
+
 	// int EtronDI_OpenDeviceEx(
 	//     void* pHandleEtronDI,
 	//     PDEVSELINFO pDevSelInfo,
@@ -215,8 +232,6 @@ ErrorCode CameraPrivate::Open(const InitParams &params) {
 	//     void* pCallbackParam,
 	//     int* pFps,
 	//     BYTE ctrlMode)
-
-	ReleaseBuf();
 
 	bool toRgb = true;
 	// Depth0: none
@@ -243,25 +258,6 @@ ErrorCode CameraPrivate::Open(const InitParams &params) {
 	}
 }
 
-ushort CameraPrivate::RetrieveDepth() {
-	ushort depth;
-	if (!depth_img_buf_) {
-		return 0;
-	}
-
-	std::lock_guard<std::mutex> _(mtx_imgs_);
-	unsigned int depth_img_width = (unsigned int)(stream_depth_info_ptr_[depth_res_index_].nWidth);
-	unsigned int depth_img_height = (unsigned int)(stream_depth_info_ptr_[depth_res_index_].nHeight);
-
-	unsigned int point_x = depth_img_width >> 1;
-	unsigned int point_y = depth_img_height >> 1;
-
-	int index = point_y * depth_img_height + point_x;
-	depth_min = depth_img_buf_[index];
-	depth = depth_min;
-	return depth;
-}
-
 bool CameraPrivate::IsOpened() {
 	return dev_sel_info_.index != -1;
 }
@@ -271,9 +267,10 @@ void CameraPrivate::ImgCallback(EtronDIImageType::Value imgType, int imgId,
 	int serialNumber, void *pParam) {
 	CameraPrivate *p = static_cast<CameraPrivate *>(pParam);
 	std::lock_guard<std::mutex> _(p->mtx_imgs_);
+	if (EtronDIImageType::IsImageColor(imgType)) {
 
-
-	if (EtronDIImageType::IsImageDepth(imgType)) {
+	}
+	else if (EtronDIImageType::IsImageDepth(imgType)) {
 		// LOGI("Image callback depth");
 		if (!p->depth_img_buf_) {
 			unsigned int depth_img_width = (unsigned int)(p->stream_depth_info_ptr_[p->depth_res_index_].nWidth);
@@ -286,6 +283,40 @@ void CameraPrivate::ImgCallback(EtronDIImageType::Value imgType, int imgId,
 	else {
 		LOGE("Image callback failed. Unknown image type.");
 	}
+}
+
+ErrorCode CameraPrivate::RetrieveDepth() {
+	if (!IsOpened())return ErrorCode::ERROR_CAMERA_NOT_OPENED;
+	if (!depth_img_buf_) {
+		return ErrorCode::ERROR_CAMERA_RETRIEVE_FAILED;
+	}
+
+	std::lock_guard<std::mutex> _(mtx_imgs_);
+
+	bool depth_ok = false;
+	if (depth_img_buf_) {
+		unsigned int depth_img_width = (unsigned int)(stream_depth_info_ptr_[depth_res_index_].nWidth);
+		unsigned int depth_img_height = (unsigned int)(stream_depth_info_ptr_[depth_res_index_].nHeight);
+
+		unsigned int point_x = depth_img_width >> 1;
+		unsigned int point_y = depth_img_height >> 1;
+
+		int index = point_y * depth_img_width * 2 + point_x * 2;
+		depth_min = ushort(depth_img_buf_[index + 1]) << 8;
+		depth_min += ushort(depth_img_buf_[index]);
+		depth_ok = true;
+	}
+
+	if (depth_ok) {
+		return ErrorCode::SUCCESS;
+	}
+	else {
+		return ErrorCode::ERROR_CAMERA_RETRIEVE_FAILED;
+	}
+}
+
+ushort CameraPrivate::GetMinDepth() {
+	return depth_min;
 }
 
 void CameraPrivate::Close() {

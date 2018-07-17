@@ -62,10 +62,13 @@ int main(int argc, char const *argv[]) {
 	// Warning: Color stream format MJPG doesn't work.
 	InitParams params(dev_info.index);
 	params.depth_mode = DepthMode::DEPTH_NON_16UC1;
+	// You can choose the resolution of each camera.
 	params.color_info_index = 4;
 	params.depth_info_index = 1;
+	// You can choose the intensity of infrared light.
 	params.ir_intensity = 3;
 
+	// Open the camera, start auto exposure till close.
 	cam.Open(params);
 
 	cout << endl;
@@ -77,16 +80,20 @@ int main(int argc, char const *argv[]) {
 
 	cout << "\033[1;32mPress ESC/Q on Windows to terminate\033[0m" << endl;
 
-	cv::namedWindow("color", WIN_FLAGS);
-	cv::namedWindow("depth", WIN_FLAGS);
-
-	DepthRegion depth_region(3);
-
-
-	ushort depthAtCenter;
+	ushort prevsDepth = 0;
+	
 	for (;;) {
-		cout << "The depth of center is : " << cam.RetrieveDepth << endl;
-		sleep(10);
+		// Retrieve and get the depth at the center.
+		if (cam.RetrieveDepth() == ErrorCode::SUCCESS) {
+			ushort depth = cam.GetMinDepth();
+			depth /= 10;
+			if (depth >= 20 && depth <= 80) { // Range of depth is [20, 80]
+				if(abs(depth - prevsDepth) >= 1)
+					cout << "The depth at center is : " << depth << "cm" << endl;
+				prevsDepth = depth;
+			}
+			Sleep(100);
+		}
 	}
 
 	cam.Close();

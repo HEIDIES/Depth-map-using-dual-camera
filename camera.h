@@ -45,8 +45,8 @@ public:
 
     bool IsOpened();
 
-    ushort RetrieveDepth();
-    //ErrorCode RetrieveImage(cv::Mat &mat, const View &view);
+    ErrorCode RetrieveDepth();
+	ushort GetMinDepth();
 
     void Close();
 
